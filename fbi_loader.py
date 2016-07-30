@@ -103,77 +103,90 @@ def LoadFBI(filename):
 	
 	return fbi_data
 
+class TDFFrame:
+	def __init__(self):
+		self.sections = {}
+		self.cursec = ""
+		self.name = []
+		self.cname = ""
+		self.value = []
+		self.cvalue = ""
+		self.state = 0
+		self.retstate = 0
+		self.slashcount = 0
 	
 def LoadTDF(filename):
 	f = open(filename, 'rb')
 	tdf_data = f.read().decode("utf-8")
 	newlines = ['\r', '\n']
 	spaces = ['\t', ' ']
-	sections = {}
-	cursec = ""
-	name = []
-	cname = ""
-	value = []
-	cvalue = ""
-	state = 0
-	retstate = 0
-	slashcount = 0
+	frames = []
+	fr = TDFFrame()
 	for i in tdf_data:
 		if i == "/":	# Count slashes for comments.
-			slashcount = slashcount + 1
+			fr.slashcount = fr.slashcount + 1
 		else:
-			slashcount = 0
+			fr.slashcount = 0
 		
-		if state == 0:	# Waiting for a section header.
+		if fr.state == 0:	# Waiting for a section header.
 			if i == '[': # Begin section header
-				name = []
-				state = 1
-		elif state == 1:
+				fr.name = []
+				fr.state = 1
+		elif fr.state == 1:
 			if i == ']':
-				cursec = ''.join(name)
-				sections[cursec] = {}
-				state = 2
+				fr.cursec = ''.join(fr.name)
+				fr.sections[fr.cursec] = {}
+				fr.state = 2
 				continue
 			elif i not in newlines:
-				name.append(i)
+				fr.name.append(i)
 			else:
 				raise Exception("TDF Error: newline or carriage return in section header.")
-		elif state == 2:	# Waiting for a data section.
-			if slashcount == 2:
-				state = 4
-				restate = 2
+		elif fr.state == 2:	# Waiting for a data section.
+			if fr.slashcount == 2:
+				fr.state = 4
+				fr.restate = 2
 			if i in newlines or i in spaces:
 				pass
 			elif i == "{":
-				name = []
-				state = 3
+				fr.name = []
+				fr.state = 3
 			else:
 				raise Exception("TDF Error: Expecting '{'")
-		elif state == 3:	# Waiting for end of data section or some data.
-			if slashcount == 2:
-				state = 4
-				retstate = 3
+		elif fr.state == 3:	# Waiting for end of data section or some data.
+			if fr.slashcount == 2:
+				fr.state = 4
+				fr.retstate = 3
 			elif i == "}":
-				state = 0
+				if len(frames):
+					parent = frames[-1]
+					parent.sections[parent.cursec][fr.cursec] = fr.sections[fr.cursec]
+					fr = frames.pop()
+				else:
+					fr.state = 0
 			elif i in newlines:
-				name = []
+				fr.name = []
 			elif i == "=":
-				cname = "".join(name)
-				value = []
-				state = 5
+				fr.cname = "".join(fr.name)
+				fr.value = []
+				fr.state = 5
+			elif i == "[":
+				frames.append(fr)
+				fr = TDFFrame()
+				fr.state = 1
 			elif i not in spaces:
-				name.append(i)
-		elif state == 4: # We're in a comment. Wait for line end.
+				fr.name.append(i)
+		elif fr.state == 4: # We're in a comment. Wait for line end.
 			if i in newlines:
-				state = retstate
-		elif state == 5: # Now reading the value for an item. Wait for semicolon.
+				fr.state = fr.retstate
+		elif fr.state == 5: # Now reading the value for an item. Wait for semicolon.
 			if i == ";":
-				cvalue = "".join(value)
-				sections[cursec][cname] = cvalue
-				state = 3
+				fr.cvalue = "".join(fr.value)
+				fr.sections[fr.cursec][fr.cname] = fr.cvalue
+				fr.state = 3
 			else:
-				value.append(i)
-	return sections
+				fr.value.append(i)
+	return fr.sections
 
 
 
@@ -192,7 +205,6 @@ for i in aba_udir.glob('*.fbi'):
 aba_w = aba_dir / 'weapons' / 'weapons.tdf'
 
 aba_weapon = LoadTDF(str(aba_w.absolute()))
-
 weapkey = sorted(list(aba_weapon.keys()))[0]
 
 print("Weapon: {0}".format(weapkey))
