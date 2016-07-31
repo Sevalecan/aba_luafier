@@ -3,6 +3,13 @@ from pathlib import Path
 import re
 import lupa
 from lupa import LuaRuntime
+import argparse
+
+# Parse arguments
+parser = argparse.ArgumentParser()
+parser.add_argument("action", choices=["ctypes", "lsubs"], nargs='?')
+
+args = parser.parse_args()
 
 ## Code for finding items in a path object.
 #pp = Path(config['badir'])	
@@ -26,6 +33,8 @@ from lupa import LuaRuntime
 # Converts a Lua table to nested dicts.
 def ExpandTable(table):
 	indices = []
+	lint = lupa.LuaRuntime()
+	tabletype = type(lint.eval('{a=[[b]]}'))
 	try:
 		table = dict(table)
 		indices = [(table, x) for x in table.keys()]
@@ -33,6 +42,8 @@ def ExpandTable(table):
 		while len(indices) > 0:
 			tb,key = indices.pop()
 			try:
+				if type(tb[key]) != tabletype:
+					continue
 				tb[key] = dict(tb[key])
 				indices.extend([(tb[key], x) for x in tb[key].keys()])
 			except (ValueError, TypeError):
@@ -50,58 +61,43 @@ def LoadLUA(filepath):
 
 class ExitLoop( Exception ):
 		pass
-
-
-errortypes = {}
-def LoadFBI(filename):
-	fbif = open(filename, 'r')
-	fbi_data = {}
+	
+def FixUnitTypes(unit):
 	strfields = ["category", "buildpic", "buildinggrounddecaltype", "collisionvolumeoffsets", "collisionvolumescales", "collisionvolumetype", "corpse", "description", "explodeas", "icontype", "name", "objectname", "selfdestructas", "yardmap", "side", "name", "badtargetcategory", "copyright", "defaultmissiontype", "nochasecategory", "selfdestructas", "unitname", re.compile("w[a-z]{3}_badtargetcategory", re.I), re.compile("weapon[0-9]+", re.I), re.compile("weaponmaindir[0-9]+", re.I), re.compile("onlytargetcategory[0-9]*", re.I), re.compile("badtargetcategory[0-9]+", re.I), re.compile("explosiongenerator[0-9]+", re.I), "soundcategory", "designation", "tedclass", "movementclass", "tracktype", "flankingbonusdir", "script"]
 	boolfields = ["usebuildinggrounddecal", "builder", "canmove"]
 	loadfields = ["soundcategory"]
+	retype = type(re.compile(""))
 	
-	for i in fbif.readlines():
-		i = i.strip();
-		if i[0:2] == "//":
-			continue
-		j = i.split("=", 1)
-		retype = type(re.compile(""))
+	for i in unit.keys():
+		j = i.lower()
 		
-		if i[0:2] == "//":
-			continue
-		
-		if len(j) > 1:
-			j[0] = j[0].lower().strip()
-			j[1] = j[1].split('//')[0].strip().rstrip(';')
-			
+		try:
+			for k in strfields:
+				if type(k) == retype:
+					if k.match(j):
+						unit[i] = str(unit[i])
+						raise ExitLoop
+				elif j == k:
+					unit[i] = str(unit[i])
+					raise ExitLoop
+			for k in boolfields:
+				if k == j:
+					unit[i] = bool(unit[i])
+					raise ExitLoop
 			try:
-				for k in strfields:
-					if type(k) == type("") and j[0] == k:
-						fbi_data[j[0]] = str(j[1])
-						raise ExitLoop
-					elif type(k) == retype:
-						if k.match(j[0]):
-							fbi_data[j[0]] = str(j[1])
-							raise ExitLoop
-				for k in boolfields:
-					if j[0] == k:
-						fbi_data[j[0]] = bool(j[1])
-						raise ExitLoop
-				try:
-					fbi_data[j[0]] = int(j[1])
-				except ValueError as e:
-					try:
-						fbi_data[j[0]] = float(j[1])
-					except ValueError as f:
-						global errortypes
-						if j[0] not in errortypes:
-							errortypes[j[0]] = j[1]
-					
-			except ExitLoop:
+				unit[i] = int(unit[i])
+				raise ExitLoop
+			except (ValueError, TypeError):
 				pass
-		
+			try:
+				unit[i] = float(unit[i])
+			except (ValueError, TypeError):
+				pass
+		except ExitLoop:
+			pass
+	return unit
+
 	
-	return fbi_data
 
 class TDFFrame:
 	def __init__(self):
@@ -114,25 +110,34 @@ class TDFFrame:
 		self.state = 0
 		self.retstate = 0
 		self.slashcount = 0
-	
+
+# TDFs, FBIs and the like all seem to be exactly the same format.
+# We can probably just use LoadTDF on all of them.		
 def LoadTDF(filename):
 	f = open(filename, 'rb')
-	tdf_data = f.read().decode("utf-8")
-	newlines = ['\r', '\n']
-	spaces = ['\t', ' ']
+	tdf_data = f.read().decode("latin_1")
+	#tdf_data = f.read().decode("UTF-8", "ignore")
+	newlines = "\r\n"
+	spaces = "\t "
 	frames = []
+	line = 1
 	fr = TDFFrame()
 	for i in tdf_data:
+		if i == '\n':
+			line = line + 1
 		if i == "/":	# Count slashes for comments.
 			fr.slashcount = fr.slashcount + 1
 		else:
+			if fr.slashcount > 0 and fr.state == 2: # Handle comments on a header line.
+				raise Exception("TDF Error: Expecting '{' in " + filename + ":" + str(line))
 			fr.slashcount = 0
+			
 		
 		if fr.state == 0:	# Waiting for a section header.
 			if i == '[': # Begin section header
 				fr.name = []
 				fr.state = 1
-		elif fr.state == 1:
+		elif fr.state == 1: # Reading the header
 			if i == ']':
 				fr.cursec = ''.join(fr.name)
 				fr.sections[fr.cursec] = {}
@@ -151,8 +156,8 @@ def LoadTDF(filename):
 			elif i == "{":
 				fr.name = []
 				fr.state = 3
-			else:
-				raise Exception("TDF Error: Expecting '{'")
+			elif i != '/':
+				raise Exception("TDF Error: Expecting '{' in " + filename + ":" + str(line))
 		elif fr.state == 3:	# Waiting for end of data section or some data.
 			if fr.slashcount == 2:
 				fr.state = 4
@@ -193,23 +198,60 @@ def LoadTDF(filename):
 ba_dir = Path("../ba938")
 aba_dir = Path(".")
 
-aba_udir = aba_dir / 'units'
-aba_units = []
-for i in aba_udir.glob('*.fbi'):
-	if i.is_file():
-		aba_units.append(LoadFBI(str(i.absolute())))
+# Load Features
+#help(aba_dir)
+aba_features = {}
+aba_weapons = {}
+aba_units = {}
 
-#for i in aba_units:
-#	print("{0}".format(i['name']))
+ba_units = {}
 
-aba_w = aba_dir / 'weapons' / 'weapons.tdf'
 
-aba_weapon = LoadTDF(str(aba_w.absolute()))
-weapkey = sorted(list(aba_weapon.keys()))[0]
+for i in (aba_dir / 'features').rglob('*.tdf'):
+	feature = LoadTDF(str(i))
+	aba_features.update(feature)
 
-print("Weapon: {0}".format(weapkey))
-for i in sorted(aba_weapon[weapkey].keys()):
-	print(" \"{0}\": {1}".format(i, aba_weapon[weapkey][i]))
+print("Features loaded: {0}".format(len(aba_features)))
 
-for key,value in errortypes.items():
-	print("Error in '{0}' = '{1}'".format(key, value))
+for i in (aba_dir / 'units').rglob('*.fbi'):
+	unit = LoadTDF(str(i))
+	unit = unit['UNITINFO']
+	FixUnitTypes(unit)
+	aba_units.update(unit)
+
+print("Units loaded {0}".format(len(aba_units)))
+
+for i in (aba_dir / 'weapons').rglob('*.tdf'):
+	weapon = LoadTDF(str(i))
+	aba_weapons.update(weapon)
+
+print("Weapons loaded {0}".format(len(aba_weapons)))
+
+aba_armor = LoadTDF(str((aba_dir / 'armor.txt')))
+
+print("Armors loaded: {0}".format(len(aba_armor)))
+
+for i in (ba_dir / 'units').glob('*.lua'):
+	print("Loading {0}".format(str(i.name)))
+	unit = LoadLUA(i)
+	ba_units.update(unit)
+
+print("BA Units loaded {0}".format(len(ba_units)))
+
+# Deal with the action now that we've loaded data.
+print()
+if args.action == "ctypes":
+	print("Comparing variable types")
+elif args.action == "lsubs":
+	subdir_list = set([])
+	print("Listing sub-dir names found in all lua units.")
+	for h,i in ba_units.items():
+		for j,k in i.items():
+			if type(k) == type({}):
+				if j.lower() not in subdir_list:
+					print()
+					print("{0} in {1}:    {2}".format(j, h, k))
+				subdir_list.add(j.lower())
+	print("Subdirs: {0}".format(subdir_list))
+				
+	
