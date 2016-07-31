@@ -11,25 +11,6 @@ parser.add_argument("action", choices=["ctypes", "lsubs"], nargs='?')
 
 args = parser.parse_args()
 
-## Code for finding items in a path object.
-#pp = Path(config['badir'])	
-#	if "units" in [x.name.lower() for x in pp.iterdir()]:
-#		print("Found units dir!")
-
-# Possibly make it iterative by using index chains.
-#def ExpandLTable(table):
-#	try:
-#		table = dict(table)
-#		for key, value in table.items():
-#			try:
-#				table[key] = ExpandLTable(value)
-#			except (ValueError, TypeError):
-#				pass
-#	
-#	except (ValueError, TypeError):
-#		pass
-#	return table
-	
 # Converts a Lua table to nested dicts.
 def ExpandTable(table):
 	indices = []
@@ -198,8 +179,6 @@ def LoadTDF(filename):
 ba_dir = Path("../ba938")
 aba_dir = Path(".")
 
-# Load Features
-#help(aba_dir)
 aba_features = {}
 aba_weapons = {}
 aba_units = {}
@@ -244,7 +223,10 @@ if args.action == "ctypes":
 	print("Comparing variable types")
 elif args.action == "lsubs":
 	subdir_list = set([])
-	print("Listing sub-dir names found in all lua units.")
+	print("Listing sub-dict names found in all lua units.")
+	# Basically anything that expands into a sub dictionary in a unit is in the old format
+	# a reference to other information such as weapons and sounds. This will tell us all
+	# of the external reference information types that we need to combine into the unit file.
 	for h,i in ba_units.items():
 		for j,k in i.items():
 			if type(k) == type({}):
