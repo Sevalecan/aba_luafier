@@ -5,10 +5,12 @@ import lupa
 from lupa import LuaRuntime
 import argparse
 from loaders import LoadLUA,LoadTDF,FixUnitTypes,ExpandTable,LowerKeys
+from converter import ConvertUnit, ConvertWeapon, MakeLuaCode
+import collections
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("action", choices=["ctypes", "lsubs", "cweap"], nargs='?')
+parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert"], nargs='?')
 args = parser.parse_args()
 
 # Set up the paths for our games to be analyzed.
@@ -62,7 +64,7 @@ for i in (aba_dir / 'weapons').rglob('*.tdf'):
 	weapon = LoadTDF(str(i))
 	aba_weapons.update(weapon)
 
-aba_weapons = LowerKeys(aba_weapons)
+#aba_weapons = LowerKeys(aba_weapons)
 print("Weapons loaded {0}".format(len(aba_weapons)))
 
 # Load ABA armor file.
@@ -159,6 +161,60 @@ elif args.action == "cweap":
 	
 	nset = baw_set & abaw_set
 	dset = abaw_set - nset
-	print(dset)
+	print(dset)	# Print the weapons that ABA has that BA does not.
 	
+	# Let's find the weapons used in ABA
+	wexp = re.compile("^weapon[0-9]+$")
+	aba_used_weapons = []
+	for unit in aba_units.values():
+		for var,data in unit.items():
+			if wexp.match(var):
+				aba_used_weapons.append(data.lower())
+	# Let's make it a set and compare it with baw_set.
+	aba_used_wset = set(aba_used_weapons)
+	aba_ba_weapons = aba_used_wset & baw_set
+	
+	print()
+	print("List weapons used in ABA that come from BA.")
+	print(aba_ba_weapons)
+	print()
+	print("Bool types: [", end="")
+	bool_set = set()
+	for j in ba_weapons.values():
+		for key,i in j.items():
+			if type(i) == type(bool()):
+				bool_set.add(key.lower())
+	for i in bool_set:
+		print("\"{0}\", ".format(i), end="")
+	print("]")
+	
+	int_set = set()
+	for j in ba_weapons.values():
+		for key,value in j.items():
+			if type(value) == type(int()):
+				int_set.add(key.lower())
+	print("\n\n\n")
+	print("int types: [", end="")
+	for i in int_set:
+		print("\"{0}\", ".format(i), end="")
+	print("]")
+	
+	float_set = set()
+	for j in ba_weapons.values():
+		for key,value in j.items():
+			if type(value) == type(float()):
+				float_set.add(key.lower())
+	print("\n\n\n")
+	print("float types: [", end="")
+	for i in float_set:
+		print("\"{0}\", ".format(i), end="")
+	print("]")
+elif args.action == "convert":
+	output_path = Path("../aba165/units")
+	new_weapons = dict()
+	
+	# First convert the weaponsdefs. We need these for the units.
+	for key,value in aba_weapons.items():
+		new_weapons[key] = ConvertWeapon(value)
+		new_weapons[key]["def"] = key
 	

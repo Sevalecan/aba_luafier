@@ -185,7 +185,7 @@ def LowerKeys(data):
 	ndata = dict()
 	if type(data) == type(dict()):
 		for key,value in data.items():
-			if type(value) == type(dict):
+			if type(value) == type(dict()):
 				value = LowerKeys(value)
 			if type(key) == type(""):
 				ndata[key.lower()] = value
