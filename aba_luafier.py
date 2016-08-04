@@ -4,18 +4,19 @@ import re
 import lupa
 from lupa import LuaRuntime
 import argparse
-from loaders import LoadLUA,LoadTDF,FixUnitTypes,ExpandTable,LowerKeys
-from converter import ConvertUnit, ConvertWeapon, MakeLuaCode
+from loaders import LoadLUA, LoadTDF, FixUnitTypes, ExpandTable
+from converter import ConvertUnits, ConvertWeapons, MakeLuaCode, ConvertSounds, LowerKeys, ConvertFeatures
 import collections
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert"], nargs='?')
+parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert", "cfeat"], nargs='?')
 args = parser.parse_args()
 
 # Set up the paths for our games to be analyzed.
 ba_dir = Path("../ba938")
 aba_dir = Path(".")
+ba7_dir = Path("../ba720")
 
 aba_features = {}
 aba_weapons = {}
@@ -53,7 +54,7 @@ for i in (aba_dir / 'units').rglob('*.fbi'):
 	unit_name = ""
 	FixUnitTypes(unit)
 	for j,k in unit.items():
-		if j.lower() == "name":
+		if j.lower() == "unitname":
 			unit_name = k
 	aba_units.update({unit_name: unit})
 
@@ -71,6 +72,14 @@ print("Weapons loaded {0}".format(len(aba_weapons)))
 aba_armor = LoadTDF(str((aba_dir / 'armor.txt')))
 print("Armors loaded: {0}".format(len(aba_armor)))
 
+aba_sounds = LoadTDF(str((aba_dir / 'gamedata' / 'sound.tdf')))
+print("Sounds loaded: {0}".format(len(aba_sounds)))
+
+####### Some sound categories are missing from the advanced BA sound.tdf. Get them from BA 7.20
+ba7_sounds = LoadTDF(str((ba7_dir / 'gamedata' / 'sound.tdf')))
+ba7_sounds.update(aba_sounds)
+aba_sounds = ba7_sounds
+
 # Load BA938 Luafied units.
 for i in (ba_dir / 'units').glob('*.lua'):
 	# print("Loading {0}".format(str(i.name)))
@@ -86,6 +95,14 @@ for key,value in ba_units.items():
 		ba_weapons.update(value['weapondefs'])
 
 print("{0} BA Weapons found.".format(len(ba_weapons)))
+
+# Extract featuredefs from BA938 for comparison against ABA.
+ba_features = {}
+for key,value in ba_units.items():
+	if value.get("featuredefs", None) != None:
+		ba_features.update(value['featuredefs'])
+
+print("{0} BA Features found.".format(len(ba_features)))
 	
 
 # Deal with the action now that we've loaded data.
@@ -156,6 +173,7 @@ elif args.action == "lsubs":
 	print("Subdicts in BA: {0}".format(subdir_list))
 	
 elif args.action == "cweap":
+	# Compare weapon information between the two mods.
 	baw_set = set(ba_weapons.keys())
 	abaw_set = set(aba_weapons.keys())
 	
@@ -177,6 +195,9 @@ elif args.action == "cweap":
 	print()
 	print("List weapons used in ABA that come from BA.")
 	print(aba_ba_weapons)
+	
+	# We're going to find all the bool types, because those are the ones that are integers in
+	# the original TDF files. We want them as bools when they get to lua... Probably.
 	print()
 	print("Bool types: [", end="")
 	bool_set = set()
@@ -188,33 +209,52 @@ elif args.action == "cweap":
 		print("\"{0}\", ".format(i), end="")
 	print("]")
 	
-	int_set = set()
-	for j in ba_weapons.values():
-		for key,value in j.items():
-			if type(value) == type(int()):
-				int_set.add(key.lower())
-	print("\n\n\n")
-	print("int types: [", end="")
-	for i in int_set:
-		print("\"{0}\", ".format(i), end="")
-	print("]")
+	# Find the information placed in weapons section of BA units.
+	ba_weaponvars = set()
+	ba_weaponvars2 = list()
 	
-	float_set = set()
-	for j in ba_weapons.values():
-		for key,value in j.items():
-			if type(value) == type(float()):
-				float_set.add(key.lower())
-	print("\n\n\n")
-	print("float types: [", end="")
-	for i in float_set:
-		print("\"{0}\", ".format(i), end="")
-	print("]")
+	for name, unit in ba_units.items():
+		for varname, data in unit.items():
+			if varname.lower() == "weapons":
+				for h,i in data.items():
+					for j,k in i.items():
+						if j.lower() not in ba_weaponvars:
+							ba_weaponvars2.append((j.lower(), type(k)));
+						ba_weaponvars.add(j.lower())
+	print("\n\n Weapon variables used: {0}".format(ba_weaponvars2))
+	
+elif args.action == "cfeat":
+	feature_bool = set()
+	for name,feature in ba_features.items():
+		for j,k in feature.items():
+			if type(k) == type(bool()):
+				feature_bool.add(j)
+				
+	print("Bool types from features: {0}".format(feature_bool))
+	
+	pass
 elif args.action == "convert":
 	output_path = Path("../aba165/units")
 	new_weapons = dict()
 	
 	# First convert the weaponsdefs. We need these for the units.
-	for key,value in aba_weapons.items():
-		new_weapons[key] = ConvertWeapon(value)
-		new_weapons[key]["def"] = key
+	new_weapons = LowerKeys(ConvertWeapons(aba_weapons))
+	new_sounds = LowerKeys(ConvertSounds(aba_sounds))
+	new_features = LowerKeys(ConvertFeatures(aba_features))
 	
+	# Looks like someone didn't test the sound categories very well. Let's try filling in the blanks.
+	new_sounds["cor_com"] = new_sounds["core_com"]
+	new_sounds["none"] = dict() # No, literally. Filling in the blanks.
+	new_sounds["chopper"] = new_sounds["cor_advtol"]
+	new_sounds["core_fusion"] = new_sounds["core_fus"]
+	new_sounds["core_cseapln"] = new_sounds["cor_cseapln"]
+	new_sounds["arm_tech_lab"] = new_sounds["core_gantry"]
+	
+	new_units = LowerKeys(ConvertUnits(aba_units, new_weapons, new_features, new_sounds))
+	
+	a = list(new_units.keys())
+	a.sort()
+	
+	print("\n\n Lua code for 'corak1' unit: \n")
+	print(MakeLuaCode({'corak1': new_units['corak1']}))
+

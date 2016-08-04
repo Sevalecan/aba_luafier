@@ -4,6 +4,7 @@ import re
 import lupa
 from lupa import LuaRuntime
 import argparse
+from converter import FixNumeric
 
 # Converts a Lua table to nested dicts.
 def ExpandTable(table):
@@ -180,16 +181,4 @@ def LoadTDF(filename):
 				fr.value.append(i)
 	return fr.sections
 
-# Convert all dict keys and sub-dict keys to lowercase.
-def LowerKeys(data):
-	ndata = dict()
-	if type(data) == type(dict()):
-		for key,value in data.items():
-			if type(value) == type(dict()):
-				value = LowerKeys(value)
-			if type(key) == type(""):
-				ndata[key.lower()] = value
-			else:
-				ndata[key] = value
-	return ndata
-			
+
