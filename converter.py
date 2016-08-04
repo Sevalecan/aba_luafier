@@ -16,7 +16,25 @@ def FixNumeric(table):
 				table[key] = float(value)
 	return table
 
-def ConvertUnits(units, weapons, features, sounds):
+def ConvertSideData(side_data):
+	side_data = copy.deepcopy(side_data)
+	can_build = side_data["CANBUILD"]
+	new_build = dict()
+	side_data["CANBUILD"] = new_build
+	
+	cb_re = re.compile("^canbuild([0-9]+)$")
+	
+	for unit,data in can_build.items():
+		new_build[unit] = dict()
+		for key,build in data.items():
+			match = cb_re.match(key)
+			if not match:
+				raise Exception("Invalid buildopption")
+			new_build[unit][match.group(1)] = build.lower()
+			
+	return side_data
+
+def ConvertUnits(units, weapons, features, sounds, sidedata):
 	# Convert units
 	
 	def cwep(weapons, index): # Add a weapon index only if it doesn't exist.
@@ -28,6 +46,8 @@ def ConvertUnits(units, weapons, features, sounds):
 	features = LowerKeys(copy.deepcopy(features))
 	sounds = LowerKeys(copy.deepcopy(sounds))
 	units = LowerKeys(copy.deepcopy(units))
+	sidedata = LowerKeys(copy.deepcopy(sidedata))
+	canbuild = sidedata["canbuild"]
 	new_units = dict()
 	
 	#### Load in weapon information.
@@ -49,6 +69,8 @@ def ConvertUnits(units, weapons, features, sounds):
 		new_units[unitname] = dict()
 		new_unit = new_units[unitname]
 		allweap = dict()
+		if unitname in canbuild:
+			new_unit["buildoptions"] = canbuild[unitname]
 		for var,data in unit.items():
 			wepmatch = weapon_array_re.match(var)
 			if wepmatch:
@@ -79,6 +101,20 @@ def ConvertUnits(units, weapons, features, sounds):
 					continue
 				
 				new_unit["sounds"] = sounds[data.lower()]
+			elif "corpse" == var: # Need to loop through corpses, could be multiple stages. Let's play it safe.
+				new_unit["corpse"] = data
+				next_corpse = data
+				if "featuredefs" not in new_unit:
+					new_unit["featuredefs"] = {}
+				while next_corpse != None:
+					cur_corpse = {next_corpse.lower() : features[next_corpse.lower()]}
+					corpse_name = next_corpse.lower()
+					if "featuredead" in cur_corpse[corpse_name]:
+						next_corpse = cur_corpse[corpse_name]["featuredead"]
+					else:
+						next_corpse = None
+					new_unit["featuredefs"].update(cur_corpse)
+				
 			else:
 				new_unit[var] = data
 		for var,data in allweap.items():
@@ -201,18 +237,28 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True):
 	if is_numeric and order_nums:
 		old_table = table
 		table = collections.OrderedDict()
-		keys = sorted(list(old_table.keys()))
+		keypairs = [(int(key), key) for key in old_table.keys()]
+		keypairs.sort(key=lambda x: x[0])
 		
 		ioffset = 0
-		if "0" in keys:
+		if (0,"0") in keypairs:
 			ioffset = 1
 		
-		for key in keys:
-			table[str(int(key)+ioffset)] = old_table[key]
+		for key in keypairs:
+			table[key[1]] = old_table[key[1]]
 	
+	# This will allow us to throw the sub-dicts at the end of the file regardless of alphabetical order,
+	# just like ba938 appears to do.
+	def LuaSort(item):
+		if type(table[item]) == type(dict()):
+			return "b"+item[0]
+		else:
+			return "a"+item[0]
 	# Write the lua code to a StringIO
+	
 	skeys = list(table.keys())
-	skeys.sort()
+	if not is_numeric:
+		skeys.sort(key=LuaSort)
 	for key in skeys:
 		value = table[key]
 		if type(value) == type(dict()):
@@ -222,7 +268,10 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True):
 		else:
 			file.write("\t"*clevel + var_str[is_numeric].format(key, FormatLuaVar(value)))
 			
-	return file.getvalue()
+	if type(file) == type(StringIO()):
+		return file.getvalue()
+	else:
+		return None
 	
 # Convert all dict keys and sub-dict keys to lowercase.
 def LowerKeys(data):

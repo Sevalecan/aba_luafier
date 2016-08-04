@@ -5,18 +5,19 @@ import lupa
 from lupa import LuaRuntime
 import argparse
 from loaders import LoadLUA, LoadTDF, FixUnitTypes, ExpandTable
-from converter import ConvertUnits, ConvertWeapons, MakeLuaCode, ConvertSounds, LowerKeys, ConvertFeatures
+from converter import ConvertUnits, ConvertWeapons, MakeLuaCode, ConvertSounds, LowerKeys, ConvertFeatures, ConvertSideData
 import collections
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert", "cfeat"], nargs='?')
+parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert_units", "cfeat"], nargs='?')
 args = parser.parse_args()
 
 # Set up the paths for our games to be analyzed.
 ba_dir = Path("../ba938")
 aba_dir = Path(".")
 ba7_dir = Path("../ba720")
+aba_new_dir = Path("../aba165")
 
 aba_features = {}
 aba_weapons = {}
@@ -47,6 +48,16 @@ for i in (aba_dir / 'features').rglob('*.tdf'):
 
 print("Features loaded: {0}".format(len(aba_features)))
 
+ba7_features = dict()
+for i in (ba7_dir / 'features').rglob('*.tdf'):
+	feature = LoadTDF(str(i))
+	ba7_features.update(feature)
+
+ba7_features.update(aba_features)
+aba_features = ba7_features
+
+print("Features loaded: {0}".format(len(aba_features)))
+
 # Load ABA units. The TDF loader works because FBI files are essentially the same format.
 for i in (aba_dir / 'units').rglob('*.fbi'):
 	unit = LoadTDF(str(i))
@@ -72,6 +83,10 @@ print("Weapons loaded {0}".format(len(aba_weapons)))
 aba_armor = LoadTDF(str((aba_dir / 'armor.txt')))
 print("Armors loaded: {0}".format(len(aba_armor)))
 
+# Load ABA sidedata file.
+aba_sidedata = LoadTDF(str((aba_dir / 'gamedata' / 'sidedata.tdf')))
+
+# Load ABA sounds.
 aba_sounds = LoadTDF(str((aba_dir / 'gamedata' / 'sound.tdf')))
 print("Sounds loaded: {0}".format(len(aba_sounds)))
 
@@ -233,7 +248,7 @@ elif args.action == "cfeat":
 	print("Bool types from features: {0}".format(feature_bool))
 	
 	pass
-elif args.action == "convert":
+elif args.action == "convert_units":
 	output_path = Path("../aba165/units")
 	new_weapons = dict()
 	
@@ -241,6 +256,7 @@ elif args.action == "convert":
 	new_weapons = LowerKeys(ConvertWeapons(aba_weapons))
 	new_sounds = LowerKeys(ConvertSounds(aba_sounds))
 	new_features = LowerKeys(ConvertFeatures(aba_features))
+	new_sidedata = LowerKeys(ConvertSideData(aba_sidedata))
 	
 	# Looks like someone didn't test the sound categories very well. Let's try filling in the blanks.
 	new_sounds["cor_com"] = new_sounds["core_com"]
@@ -250,11 +266,20 @@ elif args.action == "convert":
 	new_sounds["core_cseapln"] = new_sounds["cor_cseapln"]
 	new_sounds["arm_tech_lab"] = new_sounds["core_gantry"]
 	
-	new_units = LowerKeys(ConvertUnits(aba_units, new_weapons, new_features, new_sounds))
+	new_units = LowerKeys(ConvertUnits(aba_units, new_weapons, new_features, new_sounds, new_sidedata))
 	
-	a = list(new_units.keys())
-	a.sort()
+	# Output the units here.
 	
-	print("\n\n Lua code for 'corak1' unit: \n")
-	print(MakeLuaCode({'corak1': new_units['corak1']}))
+	aba_new_udir = aba_new_dir / 'units'
+	
+	for unit,data in new_units.items():
+		utable = {unit: data}
+		ofile_name = str(aba_new_udir / (unit + '.lua'))
+		ofile = open(ofile_name, "w", encoding="utf-8")
+		ofile.write("return {\n")
+		MakeLuaCode(utable, 1, ofile)
+		ofile.write("}\n")
+		ofile.close()
+	
+	
 
