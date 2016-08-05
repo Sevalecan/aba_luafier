@@ -35,8 +35,7 @@ def ConvertSideData(side_data):
 	return side_data
 
 def ConvertUnits(units, weapons, features, sounds, sidedata):
-		# Convert units
-		
+	# Convert units	
 		
 	# Usless tags mentioned here: https://github.com/ZeroK-RTS/SpringRTS-Tools/blob/41e0673f11ca5e90e354664cbab29fa7c40b609c/SpringModEdit/Procedures/removeUselessTags.lua
 	# Some defaults listed in rts/Sim/Units/UnitDef.cpp for spring. URL: https://goo.gl/G4zUyE
@@ -161,6 +160,7 @@ def ConvertWeapons(weapons):
 	# Variables not included here are assumed to be strings.
 	bool_vars = ["avoidfeature", "tracks", "visibleshieldrepulse", "burnblow", "collideenemy", "waterbounce", "turret", "groundbounce", "waterweapon", "impactonly", "submissile", "noselfdamage", "commandfire", "soundtrigger", "firesubmersed", "collidefriendly", "paralyzer", "avoidfriendly", "avoidground", "stockpile", "smoketrail", "noexplode", "visibleshield", "smartshield", "hardstop", "canattackground", "shieldrepulser"]
 	
+	weapons = copy.deepcopy(weapons)
 	# Weapon information comes already with a sub-type. Make sure those are all ints too.
 	new_weapons = dict()
 	for weapon_name,weapon in weapons.items():
@@ -201,6 +201,7 @@ def ConvertWeapons(weapons):
 def ConvertSounds(table):
 	# Convert sound.tdf information to the new structure. Turn numbered variables
 	# into arrays.
+	table = copy.deepcopy(table)
 	isarray = re.compile("^(.*)([0-9])+$")
 	new_table = {}
 	for key,value in table.items():
