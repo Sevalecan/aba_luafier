@@ -35,19 +35,29 @@ def ConvertSideData(side_data):
 	return side_data
 
 def ConvertUnits(units, weapons, features, sounds, sidedata):
-	# Convert units
+		# Convert units
+		
+		
+	# Usless tags mentioned here: https://github.com/ZeroK-RTS/SpringRTS-Tools/blob/41e0673f11ca5e90e354664cbab29fa7c40b609c/SpringModEdit/Procedures/removeUselessTags.lua
+	# Some defaults listed in rts/Sim/Units/UnitDef.cpp for spring. URL: https://goo.gl/G4zUyE
+	# This can help us get rid of variables that are sensibly defaulted in Spring.
+	useless_tags = ["maneuverleashlength", 	"bmcode",
+					"canreclamate",			"scale",
+				    "steeringmode",			"tedclass",
+					"designation",			"defaultmissiontype"]
+	useless_set = set(useless_tags)
 	
 	def cwep(weapons, index): # Add a weapon index only if it doesn't exist.
 		if index not in weapons:
 			weapons[index] = dict()
 
 	
-	weapons = LowerKeys(copy.deepcopy(weapons))
-	features = LowerKeys(copy.deepcopy(features))
-	sounds = LowerKeys(copy.deepcopy(sounds))
-	units = LowerKeys(copy.deepcopy(units))
-	sidedata = LowerKeys(copy.deepcopy(sidedata))
-	canbuild = sidedata["canbuild"]
+	weapons   = LowerKeys(copy.deepcopy(weapons))
+	features  = LowerKeys(copy.deepcopy(features))
+	sounds    = LowerKeys(copy.deepcopy(sounds))
+	units     = LowerKeys(copy.deepcopy(units))
+	sidedata  = LowerKeys(copy.deepcopy(sidedata))
+	canbuild  = sidedata["canbuild"]
 	new_units = dict()
 	
 	#### Load in weapon information.
@@ -223,6 +233,8 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True):
 	delimiter = "\t"
 	clevel = level
 	
+	# Print with integer index format or string index format?
+	# -- Always use [[]] quotes for lua strings, it's a pretty safe bet.
 	var_str = { False: "{0} = {1},\n", True: "[{0}] = {1},\n" }
 	table_str = { False: "{0} = {{\n", True: "[{0}] = {{\n" }
 	
@@ -251,9 +263,9 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True):
 	# just like ba938 appears to do.
 	def LuaSort(item):
 		if type(table[item]) == type(dict()):
-			return "b"+item[0]
+			return "b"+item
 		else:
-			return "a"+item[0]
+			return "a"+item
 	# Write the lua code to a StringIO
 	
 	skeys = list(table.keys())

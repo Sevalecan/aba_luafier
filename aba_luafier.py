@@ -25,18 +25,6 @@ aba_units = {}
 
 ba_units = {}
 
-# Usless tags mentioned here: https://github.com/ZeroK-RTS/SpringRTS-Tools/blob/41e0673f11ca5e90e354664cbab29fa7c40b609c/SpringModEdit/Procedures/removeUselessTags.lua
-# Some defaults listed in rts/Sim/Units/UnitDef.cpp for spring. URL: https://goo.gl/G4zUyE
-# This can help us get rid of variables that are sensibly defaulted in Spring.
-useless_tags = ["maneuverleashlength",
-	"bmcode",
-	"canreclamate",
-	"scale",
-	"steeringmode",
-	"tedclass",
-	"designation",
-"defaultmissiontype"]
-useless_set = set(useless_tags)
 
 # For weapons, badtargetcategory should get moved into the weapondef, as should weaponmaindir and onlytargetcategory
 
