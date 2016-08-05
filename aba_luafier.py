@@ -241,16 +241,16 @@ elif args.action == "convert_units":
 	new_weapons = dict()
 	
 	# First convert the weaponsdefs. We need these for the units.
-	new_weapons = LowerKeys(ConvertWeapons(aba_weapons))
-	new_sounds = LowerKeys(ConvertSounds(aba_sounds))
+	new_weapons  = LowerKeys(ConvertWeapons(aba_weapons))
+	new_sounds   = LowerKeys(ConvertSounds(aba_sounds))
 	new_features = LowerKeys(ConvertFeatures(aba_features))
 	new_sidedata = LowerKeys(ConvertSideData(aba_sidedata))
 	
 	# Looks like someone didn't test the sound categories very well. Let's try filling in the blanks.
-	new_sounds["cor_com"] = new_sounds["core_com"]
-	new_sounds["none"] = dict() # No, literally. Filling in the blanks.
-	new_sounds["chopper"] = new_sounds["cor_advtol"]
-	new_sounds["core_fusion"] = new_sounds["core_fus"]
+	new_sounds["cor_com"]      = new_sounds["core_com"]
+	new_sounds["none"]         = dict() # No, literally. Filling in the blanks.
+	new_sounds["chopper"]      = new_sounds["cor_advtol"]
+	new_sounds["core_fusion"]  = new_sounds["core_fus"]
 	new_sounds["core_cseapln"] = new_sounds["cor_cseapln"]
 	new_sounds["arm_tech_lab"] = new_sounds["core_gantry"]
 	

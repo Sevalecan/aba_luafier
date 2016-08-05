@@ -72,13 +72,15 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 	btg_numap = {"wpri_": 1, "wsec_": 2, "wspe_": 3, "wter_": 3}
 	
 	########## DEBUG
-	#print(sorted(list(sounds.keys())))
+	#print(list(weapons.keys()))
 	##########
 	
 	for unitname, unit in units.items():
 		new_units[unitname] = dict()
 		new_unit = new_units[unitname]
 		allweap = dict()
+		weapondef = dict()
+		weapon_set = set()
 		if unitname in canbuild:
 			new_unit["buildoptions"] = canbuild[unitname]
 		for var,data in unit.items():
@@ -98,6 +100,8 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 				else:
 					if  mgroups[0] == "weaponslaveto":	# This variable gets a rename.
 						mgroups[0] = "slaveto"
+					elif mgroups[0] == "weapon":
+						weapon_set.add(data.lower())
 						
 					if len(mgroups[2]) == 0:
 						allweap[mgroups[0]] = data
@@ -131,6 +135,11 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 			for widx,weap in new_unit["weapons"].items():
 				if var not in weap:
 					weap[var] = data
+		
+		for weapon in weapon_set:
+			weapondef[weapon] = weapons[weapon]
+		if len(weapon_set) > 0:
+			new_unit["weapondefs"] = weapondef
 	
 	return new_units
 	
@@ -153,6 +162,7 @@ def ConvertWeapons(weapons):
 	bool_vars = ["avoidfeature", "tracks", "visibleshieldrepulse", "burnblow", "collideenemy", "waterbounce", "turret", "groundbounce", "waterweapon", "impactonly", "submissile", "noselfdamage", "commandfire", "soundtrigger", "firesubmersed", "collidefriendly", "paralyzer", "avoidfriendly", "avoidground", "stockpile", "smoketrail", "noexplode", "visibleshield", "smartshield", "hardstop", "canattackground", "shieldrepulser"]
 	
 	# Weapon information comes already with a sub-type. Make sure those are all ints too.
+	new_weapons = dict()
 	for weapon_name,weapon in weapons.items():
 		new_weapon = dict()
 		for key,value in weapon.items():
@@ -185,7 +195,8 @@ def ConvertWeapons(weapons):
 		# Add def=weapon_name, because some ba938 units have it and I'm not sure
 		# how it's used if it is at all.
 		new_weapon['def'] = weapon_name
-	return new_weapon
+		new_weapons[weapon_name] = new_weapon
+	return new_weapons
 
 def ConvertSounds(table):
 	# Convert sound.tdf information to the new structure. Turn numbered variables
@@ -225,7 +236,7 @@ def _NumericIndices(table):
 	return True
 		
 		
-def MakeLuaCode(table, level=0, file=None, order_nums = True):
+def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    "):
 	# Make the pretty lua code here.
 	# file - the StringIO, this could be removed and we could use the return values instead.
 	# level - the indentation level
@@ -274,11 +285,11 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True):
 	for key in skeys:
 		value = table[key]
 		if type(value) == type(dict()):
-			file.write("\t"*clevel + table_str[is_numeric].format(key))
+			file.write(indent*clevel + table_str[is_numeric].format(key))
 			MakeLuaCode(value, clevel+1, file)
-			file.write("\t"*clevel + "},\n")
+			file.write(indent*clevel + "},\n")
 		else:
-			file.write("\t"*clevel + var_str[is_numeric].format(key, FormatLuaVar(value)))
+			file.write(indent*clevel + var_str[is_numeric].format(key, FormatLuaVar(value)))
 			
 	if type(file) == type(StringIO()):
 		return file.getvalue()
