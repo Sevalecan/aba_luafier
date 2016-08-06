@@ -10,7 +10,7 @@ import collections
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert_units", "cfeat"], nargs='?')
+parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert_units", "cfeat", "list_sfx", "convert_armor"], nargs='?')
 args = parser.parse_args()
 
 # Set up the paths for our games to be analyzed.
@@ -22,6 +22,8 @@ aba_new_dir = Path("../aba165")
 aba_features = {}
 aba_weapons = {}
 aba_units = {}
+ba_armor = {}
+aba_armor = {}
 
 ba_units = {}
 
@@ -78,6 +80,9 @@ aba_sidedata = LoadTDF(str((aba_dir / 'gamedata' / 'sidedata.tdf')))
 aba_sounds = LoadTDF(str((aba_dir / 'gamedata' / 'sound.tdf')))
 print("Sounds loaded: {0}".format(len(aba_sounds)))
 
+aba_armor = LoadTDF(str(aba_dir / 'armor.txt'))
+print("Armor categories loaded: {0}".format(len(aba_armor)))
+
 ####### Some sound categories are missing from the advanced BA sound.tdf. Get them from BA 7.20
 ba7_sounds = LoadTDF(str((ba7_dir / 'gamedata' / 'sound.tdf')))
 ba7_sounds.update(aba_sounds)
@@ -100,13 +105,17 @@ for key,value in ba_units.items():
 print("{0} BA Weapons found.".format(len(ba_weapons)))
 
 # Extract featuredefs from BA938 for comparison against ABA.
-ba_features = {}
+ba_features = {} # This doesn't really work since they named everything to 'dead' and 'heap'
 for key,value in ba_units.items():
 	if value.get("featuredefs", None) != None:
 		ba_features.update(value['featuredefs'])
 
 print("{0} BA Features found.".format(len(ba_features)))
 	
+# Load armordefs
+ba_armor = LoadLUA(str(ba_dir / 'gamedata' / 'armordefs.lua'))
+print("{0} BA armor categories".format(len(ba_armor)))
+
 
 # Deal with the action now that we've loaded data.
 print()
@@ -268,6 +277,13 @@ elif args.action == "convert_units":
 		MakeLuaCode(utable, 1, ofile)
 		ofile.write("}\n")
 		ofile.close()
-	
-	
+elif args.action == "convert_armor":
+	pass
+elif args.action == "list_sfx":
+	sfx_set = set()
+	for key,value in ba_units.items():
+		if "sfxtypes" in value:
+			for i in value['sfxtypes'].keys():
+				sfx_set.add(i)
+	print("sfxtypes keys: {0}".format(sfx_set))
 

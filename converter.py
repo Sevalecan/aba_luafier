@@ -3,6 +3,19 @@ import re
 import collections
 import copy
 
+# So apparently python people don't like type checking in python, and instead want you to just try a function
+# and catch an exception if it's not available in that class. That makes sense for a form of polymorphism,
+# but in this case, there are 3 different basic types stored in each dict that gets passed to the conversion
+# functions. None of these are compatible and I don't want to treat them like one object. I fail to see how
+# "Duck typing" applies here, and I think it's another one of those over-generalized and over-enforced
+# guidelines.
+
+class FormatDict(dict):
+	def __init__(self, *args, display_num=True):
+		super().__init__(args)
+		self.display_num = display_num
+		pass
+
 def FixNumeric(table):
 	# Take numeric values stored as strings and convert them to int or float appropriately.
 	table = copy.deepcopy(table)
@@ -68,6 +81,7 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 	# been done in the ConvertSounds() function. The sound category can then simply be substituted.
 	
 	weapon_array_re = re.compile("^(onlytargetcategory|maxangledif|maindir|weaponslaveto|weapon|(wpri_|wsec_|wspe_|wter_){0,1}badtargetcategory)([0-9]*)$")
+	explosiongenerator_re = re.compile("^explosiongenerator([0-9]+)$")
 	btg_numap = {"wpri_": 1, "wsec_": 2, "wspe_": 3, "wter_": 3}
 	
 	########## DEBUG
@@ -127,7 +141,15 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 					else:
 						next_corpse = None
 					new_unit["featuredefs"].update(cur_corpse)
-				
+			elif "sfxtypes" == var:
+				sfxtypes = dict()
+				new_unit["sfxtypes"] = sfxtypes
+				for var0, data0 in data.items():
+					expmatch = explosiongenerator_re.match(var0)
+					if expmatch:
+						if "explosiongenerators" not in sfxtypes:
+							sfxtypes["explosiongenerators"] = FormatDict(display_num=False)
+						sfxtypes["explosiongenerators"][int(expmatch.group(1))] = data0
 			else:
 				new_unit[var] = data
 		for var,data in allweap.items():
@@ -237,18 +259,14 @@ def _NumericIndices(table):
 	return True
 		
 		
-def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    "):
+def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", aligneq=False, index_arrays=True):
 	# Make the pretty lua code here.
 	# file - the StringIO, this could be removed and we could use the return values instead.
 	# level - the indentation level
 	# order_nums - order the numeric indices and correct them to be 1-indexed arrays?
 	delimiter = "\t"
 	clevel = level
-	
-	# Print with integer index format or string index format?
-	# -- Always use [[]] quotes for lua strings, it's a pretty safe bet.
-	var_str = { False: "{0} = {1},\n", True: "[{0}] = {1},\n" }
-	table_str = { False: "{0} = {{\n", True: "[{0}] = {{\n" }
+
 	
 	if file == None:
 		file = StringIO()
@@ -280,14 +298,40 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    "):
 			return "a"+item
 	# Write the lua code to a StringIO
 	
+	# Print with integer index format or string index format?
+	# -- Always use [[]] quotes for lua strings, it's a pretty safe bet.
+	var_str = { False: "{0} = {1},\n", True: "[{0}] = {1},\n" }
+	table_str = { False: "{0} = {{\n", True: "[{0}] = {{\n" }
+	
+	# We want to pad variable names tom align the equal signs. This will only apply to
+	# non numerically indexed tables only for the time being. The numerically indexed
+	# tables will align themselves according to every 10^n items in the list. Not a big deal.
+	
 	skeys = list(table.keys())
 	if not is_numeric:
 		skeys.sort(key=LuaSort)
+		column_width = max([len(x) for x in skeys])
+		# Do the equal sign alignment.
+		if aligneq:
+			var_str[False] = "{{0{0}}} = {1},\n".format(": <{0}".format(column_width), "{1}")
+			table_str[False] = "{{0{0}}} = {{{{\n".format(": <{0}".format(column_width))
+	elif not index_arrays:
+		var_str[True] = "{1},\n"
+		table_str[True] = "{{\n"
+
 	for key in skeys:
 		value = table[key]
-		if type(value) == type(dict()):
-			file.write(indent*clevel + table_str[is_numeric].format(key))
-			MakeLuaCode(value, clevel+1, file)
+		if isinstance(value, dict):
+			if key == "else":
+				file.write(indent*clevel + table_str[is_numeric].format("[\"else\"]"))
+			else:
+				file.write(indent*clevel + table_str[is_numeric].format(key))
+			sub_index_arrays = index_arrays
+			try:
+				sub_index_arrays = value.display_num
+			except AttributeError:
+				pass
+			MakeLuaCode(value, clevel+1, file, index_arrays=sub_index_arrays)
 			file.write(indent*clevel + "},\n")
 		else:
 			file.write(indent*clevel + var_str[is_numeric].format(key, FormatLuaVar(value)))
@@ -309,4 +353,12 @@ def LowerKeys(data):
 			else:
 				ndata[key] = value
 	return ndata
-	
+
+def LowerValues(data):
+	ndata = dict()
+	for key,value in data.items():
+		if type(value) == type(""):
+			ndata[key] = value.lower()
+		elif type(value) == type(dict()):
+			ndata[key] = LowerValues(value)
+	return ndata

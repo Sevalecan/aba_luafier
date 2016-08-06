@@ -34,6 +34,8 @@ def ExpandTable(table):
 	return table
 
 def LoadLUA(filepath):
+	if type(filepath) == type(""):
+		filepath = Path(filepath)
 	lua = LuaRuntime(unpack_returned_tuples=True)
 	lua_code = filepath.read_bytes().decode('utf-8')
 	unit = lua.execute(lua_code)
