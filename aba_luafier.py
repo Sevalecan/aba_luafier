@@ -5,12 +5,12 @@ import lupa
 from lupa import LuaRuntime
 import argparse
 from loaders import LoadLUA, LoadTDF, FixUnitTypes, ExpandTable
-from converter import ConvertUnits, ConvertWeapons, MakeLuaCode, ConvertSounds, LowerKeys, ConvertFeatures, ConvertSideData
+from converter import ConvertUnits, ConvertWeapons, MakeLuaCode, ConvertSounds, LowerKeys, ConvertFeatures, ConvertSideData, FormatDict
 import collections
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert_units", "cfeat", "list_sfx", "convert_armor"], nargs='?')
+parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert_units", "cfeat", "list_sfx", "convert_armor", "test_armor"], nargs='?')
 args = parser.parse_args()
 
 # Set up the paths for our games to be analyzed.
@@ -278,6 +278,54 @@ elif args.action == "convert_units":
 		ofile.write("}\n")
 		ofile.close()
 elif args.action == "convert_armor":
+	aba_armor = LowerKeys(aba_armor)
+	
+	new_armor = dict()
+	for category,info in aba_armor.items():
+		if category not in ba_armor:
+			new_armor[category] = []
+			for index,value in info.items():
+				new_armor[category].append(index)
+		else:
+			ba_cat = ba_armor[category].values()
+			for index,value in info.items():
+				if index not in ba_cat:
+					if category not in new_armor:
+						new_armor[category] = []
+					new_armor[category].append(index)
+	
+
+	aba_new_armor = aba_new_dir / 'newarmor.lua'
+	ofile_name = str(aba_new_armor)
+	ofile = open(ofile_name, "w", encoding="utf-8")
+	ofile.write("aba_armorDefs = {\n")
+	MakeLuaCode(new_armor, 1, ofile)
+	ofile.write("}")
+	ofile.close()
+elif args.action == "test_armor":
+	aba_armordef = aba_new_dir / 'gamedata' / 'armordefs.lua'
+	new_armor = LoadLUA(aba_armordef)
+	aba_armor = LowerKeys(aba_armor)
+	
+	for cat, table in aba_armor.items():
+		if cat not in new_armor:
+			print("Missing category {0} from armordefs.lua in ABA.".format(cat))
+		else:
+			new_armor_cat = list(new_armor[cat].values())
+			for unit in table.keys():
+				if unit not in new_armor_cat:
+					print("Missing unit {0} from category {1} in armordefs.lua from ABA.".format(unit, cat))
+					
+	for cat, table in ba_armor.items():
+		if cat not in new_armor:
+			print("Missing category {0} from armordefs.lua in BA.".format(cat))
+		else:
+			new_armor_cat = list(new_armor[cat].values())
+			for unit in table.values():
+				if unit not in new_armor_cat:
+					print("Missing unit {0} from category {1} in armordefs.lua from BA.".format(unit, cat))
+					
+			
 	pass
 elif args.action == "list_sfx":
 	sfx_set = set()
@@ -286,4 +334,6 @@ elif args.action == "list_sfx":
 			for i in value['sfxtypes'].keys():
 				sfx_set.add(i)
 	print("sfxtypes keys: {0}".format(sfx_set))
-
+elif args.action == "merge_movedefs":
+	# Apparently we already merged these... But I don't remember doing it, so I'm going to do it again.
+	pass

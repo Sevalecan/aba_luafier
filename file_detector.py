@@ -9,7 +9,9 @@ import re
 ba_dir = Path("../ba720")
 aba_dir = Path("../advanced_ba_v1.64_ba720")
 
-skipre = re.compile("^(objects3d|unitpics|unittextures|units|sounds|bitmaps)", re.I)
+# It's basically implied that we need these excluded folders, so don't complicate the comparison. Lots of files here.
+# gamedata/explosions needed as well, still present in 938.
+skipre = re.compile("^(objects3d|unitpics|unittextures|units|sounds|bitmaps|scripts)", re.I)
 
 aba_files = [str(x.relative_to(aba_dir)).lower() for x in aba_dir.rglob("*") if not x.is_dir()]
 aba_nonunit = [x for x in aba_files if not skipre.match(x)]
@@ -17,6 +19,13 @@ aba_nonunit = [x for x in aba_files if not skipre.match(x)]
 ba_files = [str(x.relative_to(ba_dir)).lower() for x in ba_dir.rglob("*") if not x.is_dir()]
 ba_nonunit = [x for x in ba_files if not skipre.match(x)]
 
+print("Overwritten files: ")
 for x in aba_nonunit:
 	if x in ba_nonunit:
-		print(x)
+		print("  " + str(x))
+
+print()
+print("ABA only files:")
+for x in aba_nonunit:
+	if x not in ba_nonunit:
+		print("  " + str(x))

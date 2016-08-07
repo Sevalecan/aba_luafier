@@ -267,6 +267,15 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 	delimiter = "\t"
 	clevel = level
 
+	# Ok, let's deal with lists. What if the table is a list? Then we convert it to a FormatDict
+	# Since a list doesn't allow another part of the program to specify indicies independently,
+	# we just don't print them.
+	if isinstance(table, list):
+		old_list = table
+		table = FormatDict(display_num=False)
+		index_arrays = False
+		for i in range(0, len(old_list)):
+			table[i] = old_list[i]
 	
 	if file == None:
 		file = StringIO()
@@ -321,7 +330,7 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 
 	for key in skeys:
 		value = table[key]
-		if isinstance(value, dict):
+		if isinstance(value, dict) or isinstance(value, list):
 			if key == "else":
 				file.write(indent*clevel + table_str[is_numeric].format("[\"else\"]"))
 			else:
@@ -334,7 +343,11 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 			MakeLuaCode(value, clevel+1, file, index_arrays=sub_index_arrays)
 			file.write(indent*clevel + "},\n")
 		else:
-			file.write(indent*clevel + var_str[is_numeric].format(key, FormatLuaVar(value)))
+			if key == "else":
+				file.write(indent*clevel + var_str[is_numeric].format("[\"else\"]", FormatLuaVar(value)))
+			else:
+				file.write(indent*clevel + var_str[is_numeric].format(key, FormatLuaVar(value)))
+			
 			
 	if type(file) == type(StringIO()):
 		return file.getvalue()
