@@ -4,7 +4,7 @@ import re
 import lupa
 from lupa import LuaRuntime
 import argparse
-from loaders import LoadLUA, LoadTDF, FixUnitTypes, ExpandTable
+from loaders import LoadLua, LoadTDF, FixUnitTypes, ExpandTable
 from converter import ConvertUnits, ConvertWeapons, MakeLuaCode, ConvertSounds, LowerKeys, ConvertFeatures, ConvertSideData, FormatDict
 import collections
 
@@ -91,7 +91,7 @@ aba_sounds = ba7_sounds
 # Load BA938 Luafied units.
 for i in (ba_dir / 'units').glob('*.lua'):
 	# print("Loading {0}".format(str(i.name)))
-	unit = LoadLUA(i)
+	unit = LoadLua(i)
 	ba_units.update(unit)
 
 print("BA Units loaded {0}".format(len(ba_units)))
@@ -113,7 +113,7 @@ for key,value in ba_units.items():
 print("{0} BA Features found.".format(len(ba_features)))
 	
 # Load armordefs
-ba_armor = LoadLUA(str(ba_dir / 'gamedata' / 'armordefs.lua'))
+ba_armor = LoadLua(str(ba_dir / 'gamedata' / 'armordefs.lua'))
 print("{0} BA armor categories".format(len(ba_armor)))
 
 
@@ -304,7 +304,7 @@ elif args.action == "convert_armor":
 	ofile.close()
 elif args.action == "test_armor":
 	aba_armordef = aba_new_dir / 'gamedata' / 'armordefs.lua'
-	new_armor = LoadLUA(aba_armordef)
+	new_armor = LoadLua(aba_armordef)
 	aba_armor = LowerKeys(aba_armor)
 	
 	for cat, table in aba_armor.items():

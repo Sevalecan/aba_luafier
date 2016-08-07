@@ -33,7 +33,7 @@ def ExpandTable(table):
 		pass # and needs no further manipulation.
 	return table
 
-def LoadLUA(filepath):
+def LoadLua(filepath):
 	if type(filepath) == type(""):
 		filepath = Path(filepath)
 	lua = LuaRuntime(unpack_returned_tuples=True)
