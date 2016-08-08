@@ -215,7 +215,7 @@ def ConvertWeapons(weapons):
 				new_weapon["damage"] = damage;
 			elif lkey == "isshield":	# isShield is now weaponType=Shield
 				new_weapon["weapontype"] = "Shield"
-			elif lkey == "beamweapon":
+			elif lkey == "beamlaser" and (value == "1" or value == 1):
 				new_weapon["weapontype"] = "BeamLaser"
 			elif shield_match:
 				if "shield" not in new_weapon:
