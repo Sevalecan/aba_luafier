@@ -54,9 +54,10 @@ for i in (aba_dir / 'units').rglob('*.fbi'):
 	unit = unit['UNITINFO']
 	unit_name = ""
 	FixUnitTypes(unit)
-	for j,k in unit.items():
-		if j.lower() == "unitname":
-			unit_name = k
+	un_re = re.compile(".*\\\\(.+)\\.fbi", re.I)
+	unit_name = str(i)
+	un_match = un_re.match(unit_name)
+	unit_name = un_match.group(1).lower()
 	aba_units.update({unit_name: unit})
 
 print("Units loaded {0}".format(len(aba_units)))
@@ -254,6 +255,19 @@ elif args.action == "convert_units":
 	new_sounds   = LowerKeys(ConvertSounds(aba_sounds))
 	new_features = LowerKeys(ConvertFeatures(aba_features))
 	new_sidedata = LowerKeys(ConvertSideData(aba_sidedata))
+	
+	##################################
+	# DEBUG CODE
+	#print("Aba unit keys: ")
+	
+	#unit_key = list(aba_units.keys())
+	#unit_key.sort()
+	#for i in unit_key:
+	#	print("  {0}".format(i))
+		
+	#exit()
+	##################################
+	
 	
 	# Looks like someone didn't test the sound categories very well. Let's try filling in the blanks.
 	new_sounds["cor_com"]      = new_sounds["core_com"]

@@ -257,7 +257,17 @@ def _NumericIndices(table):
 			if i.isnumeric() == False:
 				return False
 	return True
+	
+# We need to watch out for special characters in a key.
+def FormatLuaKey(key):
+	if isinstance(key, int):
+		return key
 		
+	special_keys = re.compile("(else|^[0-9]|-|\+)")
+
+	if special_keys.search(key) and not key.isnumeric():
+		return '["' + key + '"]'
+	return key
 		
 def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", aligneq=False, index_arrays=True):
 	# Make the pretty lua code here.
@@ -331,10 +341,7 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 	for key in skeys:
 		value = table[key]
 		if isinstance(value, (dict, list)):
-			if key == "else":
-				file.write(indent*clevel + table_str[is_numeric].format("[\"else\"]"))
-			else:
-				file.write(indent*clevel + table_str[is_numeric].format(key))
+			file.write(indent*clevel + table_str[is_numeric].format(FormatLuaKey(key)))
 			sub_index_arrays = index_arrays
 			try:
 				sub_index_arrays = value.display_num
@@ -343,10 +350,7 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 			MakeLuaCode(value, clevel+1, file, index_arrays=sub_index_arrays)
 			file.write(indent*clevel + "},\n")
 		else:
-			if key == "else":
-				file.write(indent*clevel + var_str[is_numeric].format("[\"else\"]", FormatLuaVar(value)))
-			else:
-				file.write(indent*clevel + var_str[is_numeric].format(key, FormatLuaVar(value)))
+			file.write(indent*clevel + var_str[is_numeric].format(FormatLuaKey(key), FormatLuaVar(value)))
 			
 			
 	if isinstance(file, StringIO):
@@ -356,7 +360,13 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 	
 # Convert all dict keys and sub-dict keys to lowercase.
 def LowerKeys(data):
-	ndata = dict()
+	# This allows us to retain the FormatDict and information for it when lowering keys.
+	ndata = type(data)()
+	try:
+		ndata.display_num = data.display_num
+	except AttributeError:
+		pass
+		
 	if isinstance(data, dict):
 		for key,value in data.items():
 			if isinstance(value, dict):
