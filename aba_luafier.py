@@ -10,7 +10,7 @@ import collections
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert_units", "cfeat", "list_sfx", "convert_armor", "test_armor"], nargs='?')
+parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert_units", "cfeat", "list_sfx", "convert_armor", "test_armor", "merge_movedefs", "merge_resources"], nargs='?')
 args = parser.parse_args()
 
 # Set up the paths for our games to be analyzed.
@@ -336,4 +336,55 @@ elif args.action == "list_sfx":
 	print("sfxtypes keys: {0}".format(sfx_set))
 elif args.action == "merge_movedefs":
 	# Apparently we already merged these... But I don't remember doing it, so I'm going to do it again.
-	pass
+	
+	ba_movedef_file = ba_dir / 'gamedata' / 'movedefs.lua'
+	ba_movedefs = LoadLua(ba_movedef_file)
+	
+	print("BA Movedef Count: {0}".format(len(ba_movedefs)))
+	
+	aba_movedef_file = aba_dir / 'gamedata' / 'moveinfo.tdf'
+	aba_movedefs = LowerKeys(LoadTDF(aba_movedef_file))
+	
+	print("ABA Movedef Count: {0}".format(len(aba_movedefs)))
+	print()
+	
+	aba_movedef_set = set()
+	ba_movedef_set = set()
+	
+	for movedef in aba_movedefs.values():
+		aba_movedef_set.add(movedef['name'].lower())
+	for movedef in ba_movedefs.values():
+		ba_movedef_set.add(movedef['name'].lower())
+	
+	aba_unique_movedef = aba_movedef_set.difference(ba_movedef_set)
+	
+	new_movedefs = dict()
+	for movedef in aba_movedefs.values():
+		if movedef['name'].lower() in aba_unique_movedef:
+			new_movedefs[movedef['name'].upper()] = movedef
+	print(MakeLuaCode(new_movedefs))
+	
+elif args.action == "merge_resources":
+	ba_resources_path = ba_dir / 'gamedata' / 'resources.lua'
+	aba_resources_path = aba_dir / 'gamedata' / 'resources.tdf'
+	
+	ba_resources = LowerKeys(LoadLua(ba_resources_path))
+	aba_resources = LowerKeys(LoadTDF(aba_resources_path))
+	aba_resources = aba_resources['resources']
+	
+	# Resources are stupidly complicated. Some use purely numeric indices in lua, others use strings.
+	# A quick look at the two resource files for BA and ABA shows that only projectiletextures has
+	# new values, so that's the only one we're going to worry about.
+	
+	ba_projectiletextures = set(ba_resources['graphics']['projectiletextures'].keys())
+	aba_projectiletextures = set(aba_resources['graphics']['projectiletextures'].keys())
+	
+	print("ba resourcelen: {0}, aba resourcelen: {1}".format(len(ba_projectiletextures), len(aba_projectiletextures)))
+	
+	new_projtext = aba_projectiletextures.difference(ba_projectiletextures)
+	new_projtext_dict = dict()
+	for key in new_projtext:
+		new_projtext_dict[key] = aba_resources['graphics']['projectiletextures'][key]
+	new_resources = {'graphics': {'projectiletextures': new_projtext_dict}}
+	print("New resource code:\n")
+	print(MakeLuaCode(new_resources))

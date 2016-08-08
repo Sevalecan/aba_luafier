@@ -20,9 +20,9 @@ def FixNumeric(table):
 	# Take numeric values stored as strings and convert them to int or float appropriately.
 	table = copy.deepcopy(table)
 	for key, value in table.items():
-		if type(value) == type(dict()):
+		if type(value) is dict:
 			table[key] = FixNumeric(value)
-		elif type(value) == type(""):
+		elif type(value) is str:
 			if value.isnumeric() and not value.isdecimal():
 				table[key] = int(value)
 			elif value.isdecimal():
@@ -244,16 +244,16 @@ def ConvertSounds(table):
 	return new_table
 	
 def FormatLuaVar(var):
-	if type(var) == type(""):
+	if type(var) is str:
 		return '"{0}"'.format(var)
-	elif type(var) == type(bool()):
+	elif type(var) is bool:
 		return str(var).lower()
 	else:
 		return "{0}".format(var)
 
 def _NumericIndices(table):
 	for i in table.keys():
-		if type(i) == type(""):
+		if type(i) is str:
 			if i.isnumeric() == False:
 				return False
 	return True
@@ -301,7 +301,7 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 	# This will allow us to throw the sub-dicts at the end of the file regardless of alphabetical order,
 	# just like ba938 appears to do.
 	def LuaSort(item):
-		if type(table[item]) == type(dict()):
+		if isinstance(table[item], (dict, list)):
 			return "b"+item
 		else:
 			return "a"+item
@@ -330,7 +330,7 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 
 	for key in skeys:
 		value = table[key]
-		if isinstance(value, dict) or isinstance(value, list):
+		if isinstance(value, (dict, list)):
 			if key == "else":
 				file.write(indent*clevel + table_str[is_numeric].format("[\"else\"]"))
 			else:
@@ -349,7 +349,7 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 				file.write(indent*clevel + var_str[is_numeric].format(key, FormatLuaVar(value)))
 			
 			
-	if type(file) == type(StringIO()):
+	if isinstance(file, StringIO):
 		return file.getvalue()
 	else:
 		return None
@@ -357,21 +357,22 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 # Convert all dict keys and sub-dict keys to lowercase.
 def LowerKeys(data):
 	ndata = dict()
-	if type(data) == type(dict()):
+	if isinstance(data, dict):
 		for key,value in data.items():
-			if type(value) == type(dict()):
+			if isinstance(value, dict):
 				value = LowerKeys(value)
-			if type(key) == type(""):
-				ndata[key.lower()] = value
-			else:
-				ndata[key] = value
+			try:
+				key = key.lower()
+			except AttributeError:
+				pass
+			ndata[key] = value
 	return ndata
 
 def LowerValues(data):
 	ndata = dict()
 	for key,value in data.items():
-		if type(value) == type(""):
+		if type(value) is str:
 			ndata[key] = value.lower()
-		elif type(value) == type(dict()):
+		elif type(value) is dict:
 			ndata[key] = LowerValues(value)
 	return ndata

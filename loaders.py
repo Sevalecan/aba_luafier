@@ -104,6 +104,7 @@ class TDFFrame:	# Class for holding frame information while parsing TDF files.
 # TDFs, FBIs and the like all seem to be exactly the same format.
 # We can probably just use LoadTDF on all of them.		
 def LoadTDF(filename):
+	filename = str(filename)
 	f = open(filename, 'rb')
 	tdf_data = f.read().decode("latin_1")	# Encoding is latin_1. This is determined by a single unicode
 											# character present in one file.
