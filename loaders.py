@@ -72,7 +72,7 @@ def FixUnitTypes(unit):
 					raise ExitLoop
 			for k in boolfields:
 				if k == j:
-					unit[i] = bool(unit[i])
+					unit[i] = bool(int(unit[i]))
 					raise ExitLoop
 			try:
 				unit[i] = int(unit[i])

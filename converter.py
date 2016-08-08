@@ -108,7 +108,7 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 						allweap[mgroups[0]] = data
 						continue
 					widx = btg_numap[mgroups[1]]
-					cwep(new_unit["weapons"], widx)
+					cwep(new_unit["weapons"], widx)	# Create weapon entry only if it doesn't exist.
 					new_unit["weapons"][widx]["badtargetcategory"] = data
 				else:
 					if  mgroups[0] == "weaponslaveto":	# This variable gets a rename.
@@ -116,13 +116,17 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 					elif mgroups[0] == "weapon":
 						weapon_set.add(data.lower())
 						
-					if len(mgroups[2]) == 0:
-						allweap[mgroups[0]] = data
+					if len(mgroups[2]) == 0:       # We have an inspecific weapon data. Put it in the allweaps dict
+						allweap[mgroups[0]] = data # so it can be applied to all weapons.
 						continue
 					widx = int(mgroups[2]) # Badtargetcategory uses ints and we don't want to mix.
 					cwep(new_unit["weapons"], widx)
 					
-					new_unit["weapons"][widx][mgroups[0]] = data
+					if mgroups[0] == "weapon":	# The weapon(0-9) variables have to be renamed to 'def'
+						weapon_var_name = "def"
+					else:
+						weapon_var_name = mgroups[0]
+					new_unit["weapons"][widx][weapon_var_name] = data
 			elif "soundcategory" == var:
 				if data.lower() == "none":
 					continue
@@ -182,6 +186,8 @@ def ConvertWeapons(weapons):
 	# Variables not included here are assumed to be strings.
 	bool_vars = ["avoidfeature", "tracks", "visibleshieldrepulse", "burnblow", "collideenemy", "waterbounce", "turret", "groundbounce", "waterweapon", "impactonly", "submissile", "noselfdamage", "commandfire", "soundtrigger", "firesubmersed", "collidefriendly", "paralyzer", "avoidfriendly", "avoidground", "stockpile", "smoketrail", "noexplode", "visibleshield", "smartshield", "hardstop", "canattackground", "shieldrepulser"]
 	
+	shield_re = re.compile("^shield(.*)$")
+	
 	weapons = copy.deepcopy(weapons)
 	# Weapon information comes already with a sub-type. Make sure those are all ints too.
 	new_weapons = dict()
@@ -189,6 +195,11 @@ def ConvertWeapons(weapons):
 		new_weapon = dict()
 		for key,value in weapon.items():
 			lkey = key.lower()
+			
+			shield_match = shield_re.match(lkey)
+			
+			if lkey == "cylindertargetting":
+				lkey = "cylindertargeting"
 			if lkey in bool_vars:
 				new_weapon[key] = bool(int(value))
 			elif lkey == "damage":	# The damage table is all integers.
@@ -202,6 +213,18 @@ def ConvertWeapons(weapons):
 				
 					damage[nkey] = float(nval)
 				new_weapon["damage"] = damage;
+			elif lkey == "isshield":	# isShield is now weaponType=Shield
+				new_weapon["weapontype"] = "Shield"
+			elif shield_match:
+				if "shield" not in new_weapon:
+					new_weapon["shield"] = dict()
+				shield_var = shield_match.group(1)
+				if shield_var == "badcolor" or shield_var == "goodcolor":
+					colors = value.split()
+					
+					new_weapon["shield"][shield_var] = colors
+				else:
+					new_weapon["shield"][shield_var] = value
 			else:
 				try:
 					new_weapon[key] = int(value)
@@ -245,7 +268,17 @@ def ConvertSounds(table):
 	
 def FormatLuaVar(var):
 	if type(var) is str:
-		return '"{0}"'.format(var)
+		try:
+			var = int(var)
+			return '{0}'.format(var)
+		except ValueError:
+			pass
+		try:
+			var = float(var)
+			return '{0}'.format(var)
+		except ValueError:
+			pass
+		return '"{0}"'.format(var.strip('"'))
 	elif type(var) is bool:
 		return str(var).lower()
 	else:
