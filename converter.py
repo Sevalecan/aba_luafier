@@ -215,6 +215,8 @@ def ConvertWeapons(weapons):
 				new_weapon["damage"] = damage;
 			elif lkey == "isshield":	# isShield is now weaponType=Shield
 				new_weapon["weapontype"] = "Shield"
+			elif lkey == "beamweapon":
+				new_weapon["weapontype"] = "BeamLaser"
 			elif shield_match:
 				if "shield" not in new_weapon:
 					new_weapon["shield"] = dict()
@@ -331,15 +333,19 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 	if is_numeric and order_nums:
 		old_table = table
 		table = collections.OrderedDict()
-		keypairs = [(int(key), key) for key in old_table.keys()]
+		keypairs = [[int(key), key] for key in old_table.keys()]
 		keypairs.sort(key=lambda x: x[0])
+		
+		# Make sure the keys are sequential and starting from 1, otherwise Lua breaks stuff.
+		for i in range(0,len(keypairs)):
+			keypairs[i][0] = i + 1
 		
 		ioffset = 0
 		if (0,"0") in keypairs:
 			ioffset = 1
 		
 		for key in keypairs:
-			table[key[1]] = old_table[key[1]]
+			table[key[0]] = old_table[key[1]]
 	
 	# This will allow us to throw the sub-dicts at the end of the file regardless of alphabetical order,
 	# just like ba938 appears to do.
