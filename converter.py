@@ -11,9 +11,10 @@ import copy
 # guidelines.
 
 class FormatDict(dict):
-	def __init__(self, *args, display_num=True):
+	def __init__(self, *args, display_num=True, make_sequential=True):
 		super().__init__(args)
 		self.display_num = display_num
+		self.make_sequential = make_sequential
 		pass
 
 def FixNumeric(table):
@@ -101,8 +102,8 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 			if wepmatch:
 				mgroups = list(wepmatch.groups())
 				
-				if "weapons" not in new_unit:
-					new_unit["weapons"] = dict()
+				if "weapons" not in new_unit:	# We don't want to make the weapons list sequential.
+					new_unit["weapons"] = FormatDict(display_num=True, make_sequential=False)
 				if "badtargetcategory" in mgroups[0]:
 					if not mgroups[1]:	# We have an inspecific target category. Assume for all weapons.
 						allweap[mgroups[0]] = data
@@ -215,7 +216,7 @@ def ConvertWeapons(weapons):
 				new_weapon["damage"] = damage;
 			elif lkey == "isshield":	# isShield is now weaponType=Shield
 				new_weapon["weapontype"] = "Shield"
-			elif lkey == "beamlaser" and (value == "1" or value == 1):
+			elif (lkey == "beamlaser" or lkey == "beamweapon") and (value == "1" or value == 1):
 				new_weapon["weapontype"] = "BeamLaser"
 			elif shield_match:
 				if "shield" not in new_weapon:
@@ -337,13 +338,19 @@ def MakeLuaCode(table, level=0, file=None, order_nums = True, indent="    ", ali
 		keypairs.sort(key=lambda x: x[0])
 		
 		# Make sure the keys are sequential and starting from 1, otherwise Lua breaks stuff.
-		for i in range(0,len(keypairs)):
-			keypairs[i][0] = i + 1
+		def MakeSequential():
+			nonlocal keypairs
+			for i in range(0,len(keypairs)):
+				keypairs[i][0] = i + 1
 		
-		ioffset = 0
-		if (0,"0") in keypairs:
-			ioffset = 1
+		# Don't make sequential in FormatDicts that ask you not to, one example is weapons.
+		try:
+			if old_table.make_sequential == True:
+				MakeSequential()
+		except AttributeError:
+			MakeSequential()
 		
+		# Now reconstruct the ordered dictionary.
 		for key in keypairs:
 			table[key[0]] = old_table[key[1]]
 	

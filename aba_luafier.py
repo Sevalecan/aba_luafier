@@ -1,5 +1,5 @@
 import os
-from pathlib import Path
+from pathlib import Path, PurePath, PosixPath
 import re
 import lupa
 from lupa import LuaRuntime
@@ -10,7 +10,7 @@ import collections
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("action", choices=["ctypes", "lsubs", "cweap", "convert_units", "cfeat", "list_sfx", "convert_armor", "test_armor", "merge_movedefs", "merge_resources"], nargs='?')
+parser.add_argument("action", choices=["ctypes", "lsubs", "test_weapons", "convert_units", "cfeat", "list_sfx", "convert_armor", "test_armor", "merge_movedefs", "merge_resources"], nargs='?')
 args = parser.parse_args()
 
 # Set up the paths for our games to be analyzed.
@@ -185,7 +185,7 @@ elif args.action == "lsubs":
 				subdir_list.add(j.lower())
 	print("Subdicts in BA: {0}".format(subdir_list))
 	
-elif args.action == "cweap":
+elif args.action == "test_weapons":
 	# Compare weapon information between the two mods.
 	baw_set = set(ba_weapons.keys())
 	abaw_set = set(aba_weapons.keys())
@@ -235,6 +235,33 @@ elif args.action == "cweap":
 							ba_weaponvars2.append((j.lower(), type(k)));
 						ba_weaponvars.add(j.lower())
 	print("\n\n Weapon variables used: {0}".format(ba_weaponvars2))
+	print()
+	print()
+	########### Test weapon arrays in BA and see if they're ever non-sequential in their numbering.
+	test_a = {1: "the", 2: "quick brown fox", 3:"abcdefg"}
+	test_b = {1: "slow", 3: "lazy", 4: "This is a non-sequential table."}
+	def IsSequential(table):
+		if isinstance(table, list):
+			return True
+		elif isinstance(table, dict):
+			keys = list(table.keys())
+			try:
+				keys = [int(x) for x in keys]
+				keys.sort()
+				ikey = keys[0]
+				for i in range(0, len(keys)):
+					if ikey + i != keys[i]:
+						return False
+			except ValueError:
+				return False
+			return True
+	if IsSequential(test_a) and not IsSequential(test_b):
+		print("Sequential tests passed. Testing BA for sequential weapons.")
+		print()
+		for unit,unitdef in ba_units.items():
+			if "weapons" in unitdef:
+				if not IsSequential(unitdef["weapons"]):
+					print("Weapons not sequential in unit '{0}'".format(unit))
 	
 elif args.action == "cfeat":
 	feature_bool = set()
