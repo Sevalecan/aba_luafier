@@ -43,10 +43,7 @@ for i in (ba7_dir / 'features').rglob('*.tdf'):
 	feature = LoadTDF(str(i))
 	ba7_features.update(feature)
 
-ba7_features.update(aba_features)
-aba_features = ba7_features
-
-print("Features loaded: {0}".format(len(aba_features)))
+print("BA 720 Features loaded: {0}".format(len(aba_features)))
 
 # Load ABA units. The TDF loader works because FBI files are essentially the same format.
 for i in (aba_dir / 'units').rglob('*.fbi'):
@@ -275,13 +272,17 @@ elif args.action == "cfeat":
 	pass
 elif args.action == "convert_units":
 	output_path = Path("../aba165/units")
-	new_weapons = dict()
 	
 	# First convert the weaponsdefs. We need these for the units.
 	new_weapons  = LowerKeys(ConvertWeapons(aba_weapons))
 	new_sounds   = LowerKeys(ConvertSounds(aba_sounds))
-	new_features = LowerKeys(ConvertFeatures(aba_features))
 	new_sidedata = LowerKeys(ConvertSideData(aba_sidedata))
+	
+	# Merge Ba7.20 features into ABA features, but ABA features get precedence. Keys must have matching case
+	# for this to work.
+	new_features = LowerKeys(ba7_features)
+	new_features.update(LowerKeys(aba_features))
+	new_features = ConvertFeatures(new_features)
 	
 	##################################
 	# DEBUG CODE

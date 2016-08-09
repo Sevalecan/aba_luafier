@@ -166,6 +166,11 @@ def ConvertUnits(units, weapons, features, sounds, sidedata):
 			weapondef[weapon] = weapons[weapon]
 		if len(weapon_set) > 0:
 			new_unit["weapondefs"] = weapondef
+		# Corciph doesn't have a buildpic specified, but apparently it used to find it automatically.
+		# Since it doesn't now, we add it in here in code otherwise we have to fix it each time
+		# we make a new revision to the converter.
+		if "buildpic" not in [x.lower() for x in list(new_unit.keys())] and unitname.lower() == "corciph":
+			new_unit["buildpic"] = "armciph.pcx"
 	
 	return new_units
 	
@@ -410,6 +415,7 @@ def LowerKeys(data):
 	ndata = type(data)()
 	try:
 		ndata.display_num = data.display_num
+		ndata.make_sequential = data.make_sequential
 	except AttributeError:
 		pass
 		
